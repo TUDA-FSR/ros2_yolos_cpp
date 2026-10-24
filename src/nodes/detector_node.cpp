@@ -22,6 +22,9 @@ void YolosDetectorNode::declareParameters() {
   declare_parameter("model_path", rclcpp::PARAMETER_STRING);
   declare_parameter("labels_path", rclcpp::PARAMETER_STRING);
   declare_parameter("use_gpu", false);
+  declare_parameter("use_tensorrt", false);
+  declare_parameter("tensorrt_fp16", true);
+  declare_parameter("tensorrt_cache_path", "");
   declare_parameter("conf_threshold", 0.4);
   declare_parameter("nms_threshold", 0.45);
   declare_parameter("yolo_version", "auto");
@@ -34,6 +37,9 @@ YolosConfig YolosDetectorNode::loadConfig() {
   config.model_path = get_parameter("model_path").as_string();
   config.labels_path = get_parameter("labels_path").as_string();
   config.use_gpu = get_parameter("use_gpu").as_bool();
+  config.use_tensorrt = get_parameter("use_tensorrt").as_bool();
+  config.tensorrt_fp16 = get_parameter("tensorrt_fp16").as_bool();
+  config.tensorrt_cache_path = get_parameter("tensorrt_cache_path").as_string();
   config.conf_threshold = static_cast<float>(get_parameter("conf_threshold").as_double());
   config.nms_threshold = static_cast<float>(get_parameter("nms_threshold").as_double());
   config.yolo_version = get_parameter("yolo_version").as_string();
