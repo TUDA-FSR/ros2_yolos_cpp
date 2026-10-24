@@ -1,5 +1,5 @@
 diff --git a/include/yolos/core/session_base.hpp b/include/yolos/core/session_base.hpp
-index 521313d..cd74fab 100644
+index 521313d..5694965 100644
 --- a/include/yolos/core/session_base.hpp
 +++ b/include/yolos/core/session_base.hpp
 @@ -26,6 +26,26 @@
@@ -29,7 +29,7 @@ index 521313d..cd74fab 100644
  // ============================================================================
  // OrtSessionBase - Common ONNX Runtime session management
  // ============================================================================
-@@ -269,13 +289,40 @@ private:
+@@ -269,13 +289,46 @@ private:
          // Configure execution provider
          std::vector<std::string> availableProviders = Ort::GetAvailableProviders();
          auto cudaIt = std::find(availableProviders.begin(), availableProviders.end(), "CUDAExecutionProvider");
@@ -40,24 +40,30 @@ index 521313d..cd74fab 100644
 +            std::cout << "[WARNING] TensorRT requested but not available in ONNX Runtime." << std::endl;
 +        }
 +        if (useGPU && trt.enable && trtIt != availableProviders.end()) {
-+            const OrtApi& api = Ort::GetApi();
-+            OrtTensorRTProviderOptionsV2* trtOptions = nullptr;
-+            Ort::ThrowOnError(api.CreateTensorRTProviderOptions(&trtOptions));
-+            std::unique_ptr<OrtTensorRTProviderOptionsV2, decltype(api.ReleaseTensorRTProviderOptions)> trtGuard(
-+                trtOptions, api.ReleaseTensorRTProviderOptions);
-+            const char* cache = trt.cachePath.empty() ? "0" : "1";
-+            std::vector<const char*> keys{"device_id", "trt_fp16_enable", "trt_engine_cache_enable",
-+                                          "trt_timing_cache_enable"};
-+            std::vector<const char*> values{"0", trt.fp16 ? "1" : "0", cache, cache};
-+            if (!trt.cachePath.empty()) {
-+                keys.push_back("trt_engine_cache_path");
-+                values.push_back(trt.cachePath.c_str());
++            // The provider library loads TensorRT only here, so missing TensorRT libraries show up as an exception
++            try {
++                const OrtApi& api = Ort::GetApi();
++                OrtTensorRTProviderOptionsV2* trtOptions = nullptr;
++                Ort::ThrowOnError(api.CreateTensorRTProviderOptions(&trtOptions));
++                std::unique_ptr<OrtTensorRTProviderOptionsV2, decltype(api.ReleaseTensorRTProviderOptions)> trtGuard(
++                    trtOptions, api.ReleaseTensorRTProviderOptions);
++                const char* cache = trt.cachePath.empty() ? "0" : "1";
++                std::vector<const char*> keys{"device_id", "trt_fp16_enable", "trt_engine_cache_enable",
++                                              "trt_timing_cache_enable"};
++                std::vector<const char*> values{"0", trt.fp16 ? "1" : "0", cache, cache};
++                if (!trt.cachePath.empty()) {
++                    keys.push_back("trt_engine_cache_path");
++                    values.push_back(trt.cachePath.c_str());
++                }
++                Ort::ThrowOnError(
++                    api.UpdateTensorRTProviderOptions(trtOptions, keys.data(), values.data(), keys.size()));
++                sessionOptions_.AppendExecutionProvider_TensorRT_V2(*trtOptions);
++                device_ = "gpu";
++                std::cout << "[INFO] Inference device: GPU (TensorRT" << (trt.fp16 ? ", FP16" : "")
++                          << (trt.cachePath.empty() ? "" : ", engine cache " + trt.cachePath) << ")" << std::endl;
++            } catch (const Ort::Exception& e) {
++                std::cout << "[WARNING] TensorRT not usable, falling back to CUDA: " << e.what() << std::endl;
 +            }
-+            Ort::ThrowOnError(api.UpdateTensorRTProviderOptions(trtOptions, keys.data(), values.data(), keys.size()));
-+            sessionOptions_.AppendExecutionProvider_TensorRT_V2(*trtOptions);
-+            device_ = "gpu";
-+            std::cout << "[INFO] Inference device: GPU (TensorRT" << (trt.fp16 ? ", FP16" : "")
-+                      << (trt.cachePath.empty() ? "" : ", engine cache " + trt.cachePath) << ")" << std::endl;
 +        }
          if (useGPU && cudaIt != availableProviders.end()) {
              OrtCUDAProviderOptions cudaOptions{};
